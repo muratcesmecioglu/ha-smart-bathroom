@@ -1,0 +1,174 @@
+blueprint:
+    name: "\U0001F6BD\U0001F4A1 Smart Bathroom Occupancy Light Control"
+    author: Murat Çeşmecioğlu
+    description: " __If a hornet enters a closed box – it’s trapped. If the box opens – it’s gone. Now apply that logic to your bathroom.__ \n\n\n
+This blueprint lets you automate lights in bathrooms or toilets using door and motion sensors with military precision.\n\n
+'Hornet in The Box' Principle: When the door closes (box sealed), occupancy is 100% certain. When it opens, the space is clear.\n\n
+Perfect for triggering lights, exhaust fans, or even occupancy alerts in windowless rooms. \n\n
+Why it’s bulletproof: Eliminates false triggers by cross-validating door + motion + time delays.\n\n
+Read more:"
+    domain: automation
+
+    input:
+      door_sensor:
+        name: Door Sensor
+        description: This door sensor tracks when someone enters or exits
+        selector:
+          entity:
+            domain: binary_sensor
+      motion_sensor:
+        name: Motion Sensor
+        description: This motion sensor is used to confirm when someone enters the bathroom.
+        selector:
+          entity:
+            domain: binary_sensor
+      light_entity:
+        name: Light
+        description: Bathroom light.
+        selector:
+          entity:
+            filter:
+                domain:
+                  - light
+                  - switch
+                  - input_boolean
+      helper_entity:
+        name: Occupancy Helper
+        description: This helper entity monitors room occupancy.
+        selector:
+          entity:
+            domain: input_boolean
+      delay_before_motion_check:
+        name: Motion Sensor Delay (second)
+        description: The time the motion sensor takes before clearing its detected state. (Default=2)
+        default: 2
+        selector:
+          number:
+            min: 0
+            max: 60
+            step: 1
+            unit_of_measurement: s
+
+trigger:
+  - platform: state
+    entity_id: !input door_sensor
+    to: "on"
+    id: door_opened
+  - platform: state
+    entity_id: !input door_sensor
+    to: "off"
+    id: door_closed
+  - platform: state
+    entity_id: !input motion_sensor
+    to: "on"
+    id: motion_detected
+  - platform: state
+    entity_id: !input motion_sensor
+    to: "off"
+    for:
+      seconds: !input delay_before_motion_check
+    id: motion_stopped
+
+action:
+  # scenario 1: Motion stopped while the door is open, and the room is occupied
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: motion_stopped
+          - condition: state
+            entity_id: !input door_sensor
+            state: "on"
+          - condition: state
+            entity_id: !input helper_entity
+            state: "on"
+        sequence:
+          - service: switch.turn_off
+            target:
+              entity_id: !input light_entity
+          - service: input_boolean.turn_off
+            target:
+              entity_id: !input helper_entity
+    default: []
+    
+  # scenario 2: Door opened, room was not occupied
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: door_opened
+          - condition: state
+            entity_id: !input helper_entity
+            state: "off"
+        sequence:
+          - service: switch.turn_on
+            target:
+              entity_id: !input light_entity
+    default: []
+
+  # scenario 3: Motion detected, helper was off
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: motion_detected
+          - condition: state
+            entity_id: !input helper_entity
+            state: "off"
+        sequence:
+          - service: input_boolean.turn_on
+            target:
+              entity_id: !input helper_entity
+    default: []
+
+  # scenario 4: Motion detected while the door is opened
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: motion_detected
+          - condition: state
+            entity_id: !input door_sensor
+            state: "on"
+        sequence:
+          - service: switch.turn_on
+            target:
+              entity_id: !input light_entity
+          - service: input_boolean.turn_on
+            target:
+              entity_id: !input helper_entity
+    default: []
+
+  # scenario 5: Door opened while helper says occupied
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: door_opened
+          - condition: state
+            entity_id: !input helper_entity
+            state: "on"
+        sequence:
+          - wait_for_trigger:
+              - platform: state
+                entity_id: !input motion_sensor
+                to: "off"
+                for:
+                  seconds: !input delay_before_motion_check
+            continue_on_timeout: false
+          - service: switch.turn_off
+            target:
+              entity_id: !input light_entity
+          - service: input_boolean.turn_off
+            target:
+              entity_id: !input helper_entity
+    default: []
+
+  # scenario 6: Door closed while room is not occupied
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: door_closed
+          - condition: state
+            entity_id: !input helper_entity
+            state: "off"
+        sequence:
+          - service: switch.turn_off
+            target:
+              entity_id: !input light_entity
+    default: []
