@@ -6,7 +6,7 @@ This blueprint lets you automate lights in bathrooms or toilets using door and m
 'Hornet in The Box' Principle: When the door closes (box sealed), occupancy is 100% certain. When it opens, the space is clear.\n\n
 Perfect for triggering lights, exhaust fans, or even occupancy alerts in windowless rooms. \n\n
 Why it’s bulletproof: Eliminates false triggers by cross-validating door + motion + time delays.\n\n
-Read more:"
+Read more: https://community.home-assistant.io/t/smart-bathroom-occupancy-light-control/874353"
     domain: automation
 
     input:
