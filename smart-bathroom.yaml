@@ -27,7 +27,9 @@ Read more: https://community.home-assistant.io/t/smart-bathroom-occupancy-light-
       description: Light to control
       selector:
         entity:
-          domain: switch
+          domain: 
+            - light
+            - switch
     occupancy_helper:
       name: Occupancy Helper
       description: Input boolean to track occupancy state
